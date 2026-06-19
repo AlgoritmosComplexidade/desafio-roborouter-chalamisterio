@@ -1,0 +1,131 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+// Estrutura para representar um nó da lista de adjacência
+typedef struct Node {
+    int vertex;
+    struct Node* next;
+} Node;
+
+// Estrutura para representar o Grafo (Lista de Adjacência)
+typedef struct Graph {
+    int numVertices;
+    Node** adjLists;
+} Graph;
+
+// Função auxiliar para criar um novo nó da lista
+Node* createNode(int v) {
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    if (newNode == NULL) {
+        printf("Erro de alocacao de memoria!\n");
+        exit(1);
+    }
+    newNode->vertex = v;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Função para inicializar o grafo dinamicamente
+Graph* createGraph(int vertices) {
+    Graph* graph = (Graph*)malloc(sizeof(Graph));
+    graph->numVertices = vertices;
+
+    // Aloca o array de ponteiros para as listas de adjacência
+    graph->adjLists = (Node**)malloc(vertices * sizeof(Node*));
+
+    // Inicializa todas as listas como vazias (NULL)
+    for (int i = 0; i < vertices; i++) {
+        graph->adjLists[i] = NULL;
+    }
+    return graph;
+}
+
+// Função para adicionar uma aresta bidirecional (caminho livre para o robô)
+void addEdge(Graph* graph, int src, int dest) {
+    // Adiciona dest à lista de src
+    Node* newNode = createNode(dest);
+    newNode->next = graph->adjLists[src];
+    graph->adjLists[src] = newNode;
+
+    // Como o labirinto é bidirecional, adiciona src à lista de dest
+    newNode = createNode(src);
+    newNode->next = graph->adjLists[dest];
+    graph->adjLists[dest] = newNode;
+}
+
+// Exibe a lista de adjacências de forma clara e visual
+void printGraph(Graph* graph) {
+    printf("\n==================================================\n");
+    printf("   MAPA DE ADJACENCIAS DO LABIRINTO (ROBO DE RESGATE)   \n");
+    printf("==================================================\n");
+    
+    for (int i = 0; i < graph->numVertices; i++) {
+        Node* temp = graph->adjLists[i];
+        printf(" [Vertice %02d] -> ", i);
+        
+        if (temp == NULL) {
+            printf("Beco sem saida / Isolado");
+        }
+        
+        while (temp) {
+            printf("[%d]", temp->vertex);
+            if (temp->next != NULL) {
+                printf(" ---> ");
+            }
+            temp = temp->next;
+        }
+        printf("\n");
+    }
+    printf("==================================================\n");
+}
+
+// Libera a memória alocada dinamicamente
+void freeGraph(Graph* graph) {
+    for (int i = 0; i < graph->numVertices; i++) {
+        Node* temp = graph->adjLists[i];
+        while (temp) {
+            Node* toDelete = temp;
+            temp = temp->next;
+            free(toDelete);
+        }
+    }
+    free(graph->adjLists);
+    free(graph);
+}
+
+int main() {
+    int vertices, edges;
+    int src, dest;
+
+    printf("--- CONFIGURACAO DO LABIRINTO ---\n");
+    printf("Digite o numero total de vertices (pontos/cruzamentos): ");
+    if (scanf("%d", &vertices) != 1 || vertices <= 0) return 1;
+
+    printf("Digite o numero total de arestas (corredores/caminhos): ");
+    if (scanf("%d", &edges) != 1 || edges < 0) return 1;
+
+    // Cria o grafo com base no tamanho informado
+    Graph* mazeGraph = createGraph(vertices);
+
+    printf("\n--- INSIRA AS CONEXOES (Exemplo: 0 1) ---\n");
+    for (int i = 0; i < edges; i++) {
+        printf("Aresta %d/%d (Origem Destino): ", i + 1, edges);
+        if (scanf("%d %d", &src, &dest) != 2) return 1;
+        
+        // Validação simples de segurança para o robô não quebrar o código
+        if (src >= 0 && src < vertices && dest >= 0 && dest < vertices) {
+            addEdge(mazeGraph, src, dest);
+        } else {
+            printf("[ERRO] Vertices invalidos! Escolha valores entre 0 e %d. Tente novamente este par.\n", vertices - 1);
+            i--; // Decrementa para repetir a tentativa válida
+        }
+    }
+
+    // Exibe o resultado final exigido pelo requisito funcional
+    printGraph(mazeGraph);
+
+    // Limpeza de memória
+    freeGraph(mazeGraph);
+
+    return 0;
+}
