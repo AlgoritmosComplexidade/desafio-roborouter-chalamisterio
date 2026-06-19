@@ -1,0 +1,203 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
+// Estrutura para representar um nó da lista de adjacência
+typedef struct Node {
+    int vertex;
+    struct Node* next;
+} Node;
+
+// Estrutura para representar o Grafo
+typedef struct Graph {
+    int numVertices;
+    Node** adjLists;
+} Graph;
+
+// Função para criar um novo nó
+Node* createNode(int v) {
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    if (!newNode) {
+        printf("Erro de alocacao de memoria!\n");
+        exit(1);
+    }
+    newNode->vertex = v;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Função para inicializar o grafo dinamicamente
+Graph* createGraph(int vertices) {
+    Graph* graph = (Graph*)malloc(sizeof(Graph));
+    graph->numVertices = vertices;
+    graph->adjLists = (Node**)malloc(vertices * sizeof(Node*));
+    for (int i = 0; i < vertices; i++) {
+        graph->adjLists[i] = NULL;
+    }
+    return graph;
+}
+
+// Função para adicionar uma aresta bidirecional (corredor do labirinto)
+void addEdge(Graph* graph, int src, int dest) {
+    Node* newNode = createNode(dest);
+    newNode->next = graph->adjLists[src];
+    graph->adjLists[src] = newNode;
+
+    newNode = createNode(src);
+    newNode->next = graph->adjLists[dest];
+    graph->adjLists[dest] = newNode;
+}
+
+// FUNÇÃO DE BUSCA (DFS): Verifica a existência e reconstrói o caminho
+bool findPathDFS(Graph* graph, int current, int target, bool* visited, int* path, int* pathIndex) {
+    // Marca o vértice atual como visitado e adiciona ao histórico do caminho
+    visited[current] = true;
+    path[*pathIndex] = current;
+    (*pathIndex)++;
+
+    // Se alcançou o destino (Vítima/Saída), a busca foi bem-sucedida
+    if (current == target) {
+        return true;
+    }
+
+    // Explora todos os vizinhos conectados ao vértice atual
+    Node* temp = graph->adjLists[current];
+    while (temp != NULL) {
+        int neighbor = temp->vertex;
+        
+        // Se o vizinho ainda não foi explorado, o robô avança por ele
+        if (!visited[neighbor]) {
+            if (findPathDFS(graph, neighbor, target, visited, path, pathIndex)) {
+                return true; // Caminho encontrado por este ramo!
+            }
+        }
+        temp = temp->next;
+    }
+
+    // BACKTRACKING: Se o robô chegou a um beco sem saída por aqui,
+    // remove o vértice atual do caminho e reduz o índice.
+    (*pathIndex)--;
+    return false;
+}
+
+// Gerencia a execução da busca e exibe os resultados na tela
+void checkAndPrintPath(Graph* graph, int start, int end) {
+    // Vetor booleano para registrar os vértices já visitados (evita loops circulares)
+    bool* visited = (bool*)calloc(graph->numVertices, sizeof(bool));
+    // Vetor para armazenar a sequência exata de vértices do caminho
+    int* path = (int*)malloc(graph->numVertices * sizeof(int));
+    int pathIndex = 0;
+
+    printf("\n[PROCESSANDO] Verificando rota para o robo de %d ate %d...\n", start, end);
+    
+    if (findPathDFS(graph, start, end, visited, path, &pathIndex)) {
+        printf("\n==================================================\n");
+        printf(" STATUS: CAMINHO ENCONTRADO COM SUCESSO!\n");
+        printf(" Rota do robo: ");
+        for (int i = 0; i < pathIndex; i++) {
+            printf("[%d]", path[i]);
+            if (i < pathIndex - 1) {
+                printf(" -> ");
+            }
+        }
+        printf("\n==================================================\n");
+    } else {
+        printf("\n==================================================\n");
+        printf(" STATUS: ALERTA! Nao existe caminho entre %d e %d.\n", start, end);
+        printf(" Area inacessivel devido a bloqueios no labirinto.\n");
+        printf("==================================================\n");
+    }
+
+    // Liberação da memória temporária usada na busca
+    free(visited);
+    free(path);
+}
+
+// Exibe a lista de adjacências de forma visual
+void printGraph(Graph* graph) {
+    printf("\n==================================================\n");
+    printf("   MAPA DE ADJACENCIAS DO LABIRINTO (ROBO DE RESGATE)   \n");
+    printf("==================================================\n");
+    for (int i = 0; i < graph->numVertices; i++) {
+        Node* temp = graph->adjLists[i];
+        printf(" Vertice [%02d] se conecta a: ", i);
+        if (temp == NULL) printf("Beco sem saida");
+        while (temp) {
+            printf("[%d] ", temp->vertex);
+            temp = temp->next;
+        }
+        printf("\n");
+    }
+    printf("==================================================\n");
+}
+
+// Libera a memória do grafo
+void freeGraph(Graph* graph) {
+    for (int i = 0; i < graph->numVertices; i++) {
+        Node* temp = graph->adjLists[i];
+        while (temp) {
+            Node* toDelete = temp;
+            temp = temp->next;
+            free(toDelete);
+        }
+    }
+    free(graph->adjLists);
+    free(graph);
+}
+
+int main() {
+    int vertices, edges;
+    int src, dest;
+
+    printf("--- CONFIGURACAO DO LABIRINTO ---\n");
+    printf("Digite o numero total de vertices: ");
+    if (scanf("%d", &vertices) != 1 || vertices <= 0) return 1;
+
+    printf("Digite o numero total de arestas: ");
+    if (scanf("%d", &edges) != 1 || edges < 0) return 1;
+
+    Graph* mazeGraph = createGraph(vertices);
+
+    printf("\n--- INSIRA AS CONEXOES (Exemplo: 0 1) ---\n");
+    for (int i = 0; i < edges; i++) {
+        printf("Aresta %d/%d (Origem Destino): ", i + 1, edges);
+        if (scanf("%d %d", &src, &dest) != 2) return 1;
+        
+        if (src >= 0 && src < vertices && dest >= 0 && dest < vertices) {
+            addEdge(mazeGraph, src, dest);
+        } else {
+            printf("[ERRO] Vertices invalidos! Use valores entre 0 e %d.\n", vertices - 1);
+            i--; 
+        }
+    }
+
+    // Requisito: Exibir a visualização usando a lista de adjacências
+    printGraph(mazeGraph);
+
+    // Requisito: Apresentar a lista de vértices para o usuário
+    printf("\n--- INTERFACE DE NAVEGACAO DO ROBO ---\n");
+    printf("Vertices disponiveis no mapa: ");
+    for (int i = 0; i < vertices; i++) {
+        printf("%d ", i);
+    }
+    printf("\n");
+
+    // Requisito: Solicitar que o usuário escolha dois vértices
+    int vertexA, vertexB;
+    printf("Escolha o vertice de ORIGEM (Robo): ");
+    if (scanf("%d", &vertexA) != 1) return 1;
+    printf("Escolha o vertice de DESTINO (Vitima): ");
+    if (scanf("%d", &vertexB) != 1) return 1;
+
+    // Validação das escolhas
+    if (vertexA >= 0 && vertexA < vertices && vertexB >= 0 && vertexB < vertices) {
+        // Executa a verificação e imprime o caminho se houver
+        checkAndPrintPath(mazeGraph, vertexA, vertexB);
+    } else {
+        printf("[ERRO] Vertices selecionados estao fora dos limites do mapa!\n");
+    }
+
+    // Limpeza final de memória
+    freeGraph(mazeGraph);
+    return 0;
+}
